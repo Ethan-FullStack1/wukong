@@ -1,0 +1,52 @@
+1.ThreadLcoal使用时间的注意点
+    1.内存泄漏
+        1.什么是内存泄漏：某个对象不再有用，但是占用的内存却不能被回收
+            1.key的泄漏：ThreadLcoalMap中的Entry继承自WeakReference，是弱引用
+                static class ThreadLocalMap {
+
+                        /**
+                         * The entries in this hash map extend WeakReference, using
+                         * its main ref field as the key (which is always a
+                         * ThreadLocal object).  Note that null keys (i.e. entry.get()
+                         * == null) mean that the key is no longer referenced, so the
+                         * entry can be expunged from table.  Such entries are referred to
+                         * as "stale entries" in the code that follows.
+                         */
+                        static class Entry extends WeakReference<ThreadLocal<?>> {
+                            /** The value associated with this ThreadLocal. */
+                            Object value;
+
+                            Entry(ThreadLocal<?> k, Object v) {
+                                super(k);        // ThreadLcoal被弱引用赋
+                                value = v;       // 直接被赋值，强引用
+                            }
+                        }
+                    }
+            2.弱引用的特点是，如果这个对象只是被弱引用关联(没有任何强引用关联)，那么这个对象就可以被回收
+            3.所以弱引用不会阻止GC，因此这个弱引用的机制
+            4.value的泄漏(因为Value是是强引用，所以就会出现内存泄漏的可能性)
+                1.ThreadLcoalMap的每个Entry都是一个对key的弱引用，同时，每个Entry都包含了一个对value的强引用
+                2.正常情况下，当线程终止，保存在ThreadLcoal里的value会被垃圾回收，因为没有任何强引用了
+                3.但是，如果线程不终止(比如线程需要保存很久)，那么key对应的value就不能被回收，因为有以下的调用链：
+                    Thread -> ThreadLocalMap -> Entry(key为null) -> value
+                    Entry中的key是一个弱引用，可以被回收，但是key对应的value是强引用，没有办法被回收
+                4.因为value和Thread之间还存在这个强引用链路，所以导致value无法回收，就可能会出现OOM
+                5.JDK已经是考虑到这个问题，所以在set，remove，rehash方法中会扫描key为null的Entry，并把对应的value设置为null，这样value对象就
+                可以被回收
+                6.但是一个ThreadLocal不被使用，那么实际上set，remove，rehash方法也不会被调用，如果同时线程又不停止，那么调用链就一直存在，那么就导致了value的内存泄漏。
+        2.如何避免内存泄漏(阿里规约)
+            1.调用remove方法，就会删除对应的Entry对象，可以避免内存泄漏，所以使用完ThreadLcoal之后，应该调用remove方法。
+        3.使用ThreadLcoal时间所出现空指针异常
+            程序本身的问题，可能是自动装箱时间出现了空指针，不是ThreadLocal导致的
+        4.共享对象
+            如果在每个线程中ThreadLcoal.set()进去的东西本来就是多线程共享的同一对象，比如static对象，那么多个线程的ThreadLcoal.get()取得的还是
+            这个共享对象本身，还是有并发访问问题。
+            static对象或者是变量可以直接拿，不需要使用到ThreadLocal.
+        5.如果可以不使用ThreadLocal就解决问题，那么不要强行使用
+            例如在任务数很少的时候，在局部变量中可以新建对象就可以解决问题，那么就不需要使用到ThreadLcoal.
+        6.优先使用框架的支持，而不是自己创造
+            例如在Spring中，如果可以使用RequestContextHolder，那么就不需要自己维护ThreadLcoal，因为自己可能会忘记使用remove()方法等，造成内存泄漏
+
+2.ThreadLcoal实际运用场景 -- 在Spring中的实例分析
+    1.DateTimeContextHolder类，看到里面用了ThreadLocal
+    2.每次HTTP请求都对应一个线程，线程之间相互隔离，这就是ThreadLocal的典型应用场景。

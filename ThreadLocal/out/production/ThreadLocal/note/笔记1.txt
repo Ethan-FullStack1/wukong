@@ -1,0 +1,152 @@
+1.两大使用场景 -- ThreadLocal的用途
+    1.典型场景1：每个线程需要一个独享的对象(通常是工具类，典型需要使用的类有SimpleDateFormat和Random)
+        1.每个Thread内有自己的实例副本，不共享
+        2.比喻：教材只有一本，一起做笔记有线程安全问题。复印后没问题
+        3.SimpleDateFormat的进化之路
+            1.两个线程分别用自己的SimpleDateFormat,这没问题
+            2.后来延伸出10个，那就有十个线程和十个SimpleDateFormat，这虽然写法不优雅(应该复用对象)，但勉强可以接受
+            3.但是当需求变成了1000个，那么必然要用线程池(否则消耗内存太多)
+            4.所有的线程都共用一个simpleDateFormat对象(出现线程不安全情况)
+            5.为每个调用共同变量simpleDatetFormat加锁进行处理(效率太慢)
+        4.更好的解决方案是使用ThreadLocal
+    2.典型场景2：每个线程内需要保存全局变量(例如在拦截器中获取用户信息)，可以让不同方法直接使用，避免参数传递的麻烦。
+        1.实例：当前用户信息需要被线程内所有方法共享
+            1.场景一：一个比较繁琐的解决方案就是把user作为参数层层传递，从service-1()传到service-2(),再从service-2()传到service-3()，以此类推，但是这样会导致代码冗余且不易维护。
+                1.解决方案：每个线程内需要保存全局变量，可以让不同方法直接使用，避免参数传递的麻烦
+                2.用ThreadLocal保存一些业务内容(用户权限信息，从用户系统获取到的用户名、userID等)
+                3.这些信息在同一个线程内相同，但是不同的线程使用的业务内容是不相同的
+                4.在此基础上可以演进，使用UserMap
+                    当多线程同时工作时，我们需要保证线程安全，可以用synchrobized，也可以用ConcurrentHashMap，但无论用什么，都会对性能有所影响
+                5.更好的办法是使用ThreadLocal，这样无需使用synchronized，可以在不影响性能的情况下，也无需层层传递参数，就可以达到保存当前线程对应的用户信息的目的
+                6.在线程生命周期内，都通过这个静态TreadLocal实例的get()方法取得自己set过得那个对象，避免了将这个对象(例如user对象)作为参数传递的麻烦
+                7.强调的是同一个请求内(同一个线程内)不同方法间的共享
+                8.不需要重写initialValue()方法，但是必须手动调用set()方法
+            2.场景2：每个线程内需要保存全局变量(例如在拦截器中获取用户信息)，可以让不同方法直接使用，避免参数传递的麻烦。
+      3.总结
+        1.ThreadLocal的两个作用
+            1.让某个需要用到的对象在线程间隔离(每个线程都有自己的独立的对象)
+            2.在任何方法中都可以轻松获取到该对象
+        2.ThreadLocal在两种场景下做下区别和分析(根据共享对象的生成时机不同，选择initialValue或set来保存对象)
+            1.场景1：initialValue
+                1.在ThreaLocal第一次get的时候把对象给初始化出来，对象的初始化时机可以由我们控制。
+            2.场景2：set
+                1.如果需要保存到ThreadLocal里的对象的生成时机不由我们随意控制，例如拦截器生成的用户信息，用ThreadLocal.set直接放到我们的
+                ThreadLcoal中去，以便后续使用。
+
+2.使用ThreadLocal带来的好处
+    1.达到线程安全
+    2.不需要加锁，提高执行效率
+    3.更高效的利用内存、节省开销：相比于每个任务都新建一个SimpleDateFormat，显然用ThreadLocal可以节省内存和开销
+    4.免去传参的繁琐：无论是场景一的工具类，还是场景二的用户名，都可以在任何地方直接通过ThreadLcoal拿到，再也不需要每次都传同样的参数。ThreadLcoal使得代码耦合度更低，更优雅
+3.主要方法介绍
+    1.T initialValue():初始化
+        1.该方法会返回当前线程对应的"初始值"，这是一个延迟加载的方法，只有在调用get()的时候，才会触发
+            public T get() {
+                    Thread t = Thread.currentThread();
+                    ThreadLocalMap map = getMap(t);
+                    if (map != null) {
+                        ThreadLocalMap.Entry e = map.getEntry(this);
+                        if (e != null) {
+                            @SuppressWarnings("unchecked")
+                            T result = (T)e.value;
+                            return result;
+                        }
+                    }
+                    return setInitialValue();
+                }
+
+                private T setInitialValue() {
+                        T value = initialValue();
+                        Thread t = Thread.currentThread();
+                        ThreadLocalMap map = getMap(t);
+                        if (map != null)
+                            map.set(this, value);
+                        else
+                            createMap(t, value);
+                        return value;
+                    }
+        2.当线程第一次使用get方法访问变量时，将调用此方法，除非线程先前调用了set方法，在这种情况下，不会为线程调用本initialValue方法。
+        3.通常，每个线程最多调用一次此方法，但如果已经调用了remove()之后，在调用get(),则可以再次调用此方法
+        4.如果不重写本方法，这个方法会返回null。一般使用匿名内部类的方法来重写initialValue()方法，以便在后续使用中可以初始化副本对象。
+    2.void set(T t):为这个线程设置一个新值
+    3.T get()：得到这个线程对应的value。如果是首次调用get(),则会调用initialize来得到这个值
+    4.void remove()：删除这个对应线程的值
+4.ThreadLocal原理
+    1.搞清楚Thread，ThreadLcoal，ThreadLocalMap三者之间的关系
+    2.每个Thread对象中都持有一个ThreadLocalMap成员变量(ThreadLcoal和ThreadLocalMap是一对一对应关系)
+    3.ThreadLocalMap里面有多个ThreadLocal，Map的key对应ThreadLocal对象，value对应ThreadLocal的值
+5.ThreadLocal重要方法的源码分析
+    1.get方法。
+        1.get方法是首先取出当前线程的ThreadLocalMap，然后调用map.getEntry方法。把本ThreadLcoal的引用作为参数传入，取出map中属于本ThreadLocal
+        的value。
+                public T get() {
+                        Thread t = Thread.currentThread();    //首先取到当前线程
+                        ThreadLocalMap map = getMap(t);       //获取当前线程有没有一个ThreadLcoalMap。如果ThreadLocal没有被初始化过或者是set过，ThreadLocalMap就是个null。
+                        if (map != null) {
+                            ThreadLocalMap.Entry e = map.getEntry(this); // this代表当前类ThreadLocal，如果ThreadLocalMap不为null的话，就处获取当前ThreadLcoal被设置进去的值
+                            if (e != null) {
+                                @SuppressWarnings("unchecked")
+                                T result = (T)e.value;      // 如果是获取的entry不为空，获取entry中的value。
+                                return result;              // 返回
+                            }
+                        }
+                        return setInitialValue();           // 如果是没有被初始化过，就去设置ThreadLocal的初始化数据
+                    }
+
+                    ThreadLocalMap getMap(Thread t) {
+                            return t.threadLocals;     // 每个线程都拥有的一个成员变量
+                    }
+        2.注意，ThreadLocalMap以及map中的key和value都是保存在线程中的，而不是保存在ThreadLcoal中
+
+    2.set方法(与setInitialValue很类似)
+        public void set(T value) {
+                Thread t = Thread.currentThread();      // 首先获取当前线程
+                ThreadLocalMap map = getMap(t);         // 通过getMap方法获取当前ThreadLocalMap
+                if (map != null)
+                    map.set(this, value);               // 如果说不是空，说明之前是设置设置过，将之前的值进行覆盖.
+                else
+                    createMap(t, value);                // 如果说拿到的Map是空的话，说明是第一次设置ThreadLcoalMap里面的ThreadLocal，把当前线程的ThreadLocal的值设置进对应的ThreadLcoal的value里面
+            }
+    3.initialValue方法：是没有默认实现的，如果我们要用initialValue方法，需要自己实现，通常是匿名内部类的方式
+        // 实现匿名内部类写法
+        public static ThreadLocal<SimpleDateFormat> dateFormatThreadLocal = new ThreadLocal<SimpleDateFormat>() {
+                @Override
+                protected SimpleDateFormat initialValue() {
+                    return new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+                }
+            };
+        // Lambda表达式写法
+        public static ThreadLocal<SimpleDateFormat> dateFormatThreadLocalLambda = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd hh:mm:ss"));
+    4.remove方法
+        public void remove() {
+             ThreadLocalMap m = getMap(Thread.currentThread());         // 通过当前线程获取到当前线程的ThreadLcoalMap
+             if (m != null)                                             // 如果说不是空的话
+                 m.remove(this);                                        // 删除当前ThreadLocalMap中对应当前ThreadLocal对应的value
+         }
+
+6.ThreadLocalMap类
+    1.ThreadLocalMap类，也就是Thread.threadLocals.
+        也就是Thread类里面的一个成员变量
+            /*
+             * InheritableThreadLocal values pertaining to this thread. This map is
+             * maintained by the InheritableThreadLocal class.
+             */
+            ThreadLocal.ThreadLocalMap inheritableThreadLocals = null;
+        他的一个类型是ThreadLocalMap。
+        ThreadLcoalMap是定义在ThreadLcoal里面的一个静态内部类。里面有一个重要的成员变量table.
+            /**
+             * The table, resized as necessary.
+             * table.length MUST always be a power of two.
+             */
+            private Entry[] table;
+        它是一个Entry的数组，那么这个Entry他怎么理解呢？
+    2.ThreadLcoalMap类是每个线程Thread类里面的变量，里面最重要的是一个键值对数组Entry[] table，可以认为是一个map，键值对：
+        键：这个ThreadLocal
+        值：实际需要的成员变量，比如user或者是SimpleDateFormat对象。
+    3.冲突：HashMap
+    4.ThreadLcoalMap处理冲突的方法采用的是先行探测法，也就是如果发生冲突，就继续找下一个空位置，而不是用链表拉链
+7.两种使用场景殊途同归
+    1.通过源码分析我们看出，setInitialValue和直接set最后都是利用map.set()方法来设置值
+    2.也就是说，最后都会对应到ThreadLocalMap的一个Entry，只不过时间起点和入口不一样
+        get作为起点，然后简介调用InitialValue方法。
+        set()方法，直接用set,用set方法设置进去
