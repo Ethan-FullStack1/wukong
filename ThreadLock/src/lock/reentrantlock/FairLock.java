@@ -34,7 +34,7 @@ public class FairLock {
 
 class PrintQueue {
     // 由于我们的打印机只有一台，所以我们来定义一把锁
-    private static final Lock queueLock = new ReentrantLock(true);
+    private static final Lock queueLock = new ReentrantLock(false);
 
     // 打印的方法
     public void printJob(Object document) {
@@ -68,7 +68,7 @@ class PrintQueue {
     }
 }
 
-class Job implements Runnable{
+class Job implements Runnable {
 
     PrintQueue printQueue;
 

@@ -23,9 +23,7 @@ public class PessimismOptimismLock {
         // 创建一个原子整形
         AtomicInteger integer = new AtomicInteger();
         // 让原子整形进行自增
-        // 这个原子整形也可以允许多个线程来执行当前方法，但是由于我们原子整形内部采用了乐观锁的方式
-        // 他其实也是有锁的，他可以保证线程安全的，只不过呢，保证安全的原理采用了乐观的方式
-        // 所以在下面方法我们看不出来他加锁的过程
+        // 这个原子整形也可以允许多个线程来5耳
         integer.incrementAndGet();
     }
 
