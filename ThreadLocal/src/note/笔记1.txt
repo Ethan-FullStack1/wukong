@@ -73,7 +73,7 @@
     4.void remove()：删除这个对应线程的值
 4.ThreadLocal原理
     1.搞清楚Thread，ThreadLcoal，ThreadLocalMap三者之间的关系
-    2.每个Thread对象中都持有一个ThreadLocalMap成员变量(ThreadLcoal和ThreadLocalMap是一对一对应关系)
+    2.每个Thread对象中都持有一个ThreadLocalMap成员变量(Thread和ThreadLocalMap是一对一对应关系)
     3.ThreadLocalMap里面有多个ThreadLocal，Map的key对应ThreadLocal对象，value对应ThreadLocal的值
 5.ThreadLocal重要方法的源码分析
     1.get方法。
