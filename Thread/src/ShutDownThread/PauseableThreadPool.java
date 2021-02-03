@@ -15,7 +15,7 @@ public class PauseableThreadPool extends ThreadPoolExecutor {
 
     private final ReentrantLock lock = new ReentrantLock();
 
-    private Condition unpaused = lock.newCondition();
+    private final Condition unpaused = lock.newCondition();
 
     private boolean isPaused;
 

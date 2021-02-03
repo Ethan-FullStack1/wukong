@@ -1,7 +1,5 @@
 package threadlocal.threadlocalnullpointerexception;
 
-import com.sun.org.apache.bcel.internal.generic.LoadClass;
-
 /**
  * 使用ThreadLocal出现NPE问题演示
  *
@@ -28,12 +26,9 @@ public class ThreadLocalNPE {
         // 空指针异常
         System.out.println(localNPE.get());
 
-        Thread thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                localNPE.set();
-                System.out.println(localNPE.get());
-            }
+        Thread thread = new Thread(() -> {
+            localNPE.set();
+            System.out.println(localNPE.get());
         });
         thread.start();
     }
