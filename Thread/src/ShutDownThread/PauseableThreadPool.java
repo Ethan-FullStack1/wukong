@@ -71,7 +71,7 @@ public class PauseableThreadPool extends ThreadPoolExecutor {
 
 
     public static void main(String[] args) {
-        PauseableThreadPool threadPool = new PauseableThreadPool(10, 20, 10l, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
+        PauseableThreadPool threadPool = new PauseableThreadPool(10, 20, 10L, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
         Runnable runna = new Runnable() {
             @Override
             public void run() {
