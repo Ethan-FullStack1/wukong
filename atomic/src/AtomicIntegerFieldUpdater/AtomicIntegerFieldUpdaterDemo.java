@@ -13,7 +13,7 @@ public class AtomicIntegerFieldUpdaterDemo implements Runnable {
     static Candidate tom;
     static Candidate peter;
 
-    public static AtomicIntegerFieldUpdater<Candidate> scoreUpdater = AtomicIntegerFieldUpdater.newUpdater(Candidate.class, "score");
+    public static final AtomicIntegerFieldUpdater<Candidate> scoreUpdater = AtomicIntegerFieldUpdater.newUpdater(Candidate.class, "score");
 
     @Override
     public void run() {
