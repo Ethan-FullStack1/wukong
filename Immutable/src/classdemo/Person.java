@@ -22,4 +22,6 @@ public class Person {
     // 合我们不可变的要求
 //    int score = 0;
 
+    
+
 }
